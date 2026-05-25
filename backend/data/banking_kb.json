@@ -1,0 +1,74 @@
+[
+  {
+    "id": "acc-001",
+    "category": "accounts",
+    "title": "Savings Account Opening",
+    "content": "To open a savings account, customers must be 18 years or older and provide valid government-issued ID (Aadhaar/PAN/Passport), proof of address, and two passport-sized photographs. Minimum opening balance is INR 1,000 for regular savings and INR 10,000 for premium savings. Accounts are activated within 24-48 working hours after KYC verification."
+  },
+  {
+    "id": "acc-002",
+    "category": "accounts",
+    "title": "Account Closure Process",
+    "content": "Customers wishing to close their account must submit a signed closure form at any branch along with unused cheque books and debit cards. Outstanding balance below INR 25,000 will be paid by cash; above that, by demand draft or NEFT. Closure within 14 days of opening is free; otherwise, a fee of INR 500 applies."
+  },
+  {
+    "id": "loan-001",
+    "category": "loans",
+    "title": "Home Loan Eligibility",
+    "content": "Home loan eligibility requires the applicant to be a salaried employee with minimum 2 years of work experience or self-employed with 3 years of business continuity. Minimum monthly income is INR 25,000. Maximum loan-to-value ratio is 80% for loans up to INR 30 lakh, 75% for INR 30-75 lakh, and 65% above that. Interest rates start at 8.4% p.a. floating."
+  },
+  {
+    "id": "loan-002",
+    "category": "loans",
+    "title": "Personal Loan Terms",
+    "content": "Personal loans are unsecured loans up to INR 25 lakh with tenure of 12-60 months. Interest rates range from 10.5% to 18% p.a. based on credit score and income. Processing fee is 1-2.5% of loan amount. Pre-closure after 12 EMIs is free; before that, a 4% pre-closure charge applies."
+  },
+  {
+    "id": "card-001",
+    "category": "cards",
+    "title": "Credit Card Lost or Stolen",
+    "content": "If your credit card is lost or stolen, immediately call the 24x7 helpline at 1800-XXX-XXXX or block the card via mobile banking. Zero liability applies for unauthorized transactions reported within 3 working days. A replacement card with a new number is issued within 7 working days at a fee of INR 200."
+  },
+  {
+    "id": "card-002",
+    "category": "cards",
+    "title": "Credit Card Reward Points",
+    "content": "Reward points are earned at 2 points per INR 100 spent on regular purchases and 5 points per INR 100 on dining, travel, and online shopping. Points have a validity of 24 months and can be redeemed for cash credit, gift vouchers, or air miles. Fuel surcharge waiver up to INR 250/month applies on transactions between INR 400 and INR 5,000."
+  },
+  {
+    "id": "fraud-001",
+    "category": "fraud",
+    "title": "Reporting Fraudulent Transactions",
+    "content": "Customers must report fraudulent transactions within 3 working days for zero liability protection. Reporting between 4-7 days limits customer liability to INR 25,000. Beyond 7 days, the bank's policy determines liability. File a report via the mobile app, call the fraud helpline, or visit the nearest branch. A police FIR is mandatory for amounts above INR 1 lakh."
+  },
+  {
+    "id": "kyc-001",
+    "category": "compliance",
+    "title": "KYC Update Requirements",
+    "content": "As per RBI guidelines, KYC must be updated every 2 years for high-risk customers, 8 years for medium-risk, and 10 years for low-risk customers. Required documents: latest address proof, photo ID, and recent photograph. KYC can be updated via Video KYC, mobile app upload, or branch visit. Failure to update results in account freezing."
+  },
+  {
+    "id": "deposit-001",
+    "category": "deposits",
+    "title": "Fixed Deposit Interest Rates",
+    "content": "Fixed deposit interest rates vary by tenure: 7-45 days: 3.0%, 46-90 days: 4.5%, 91-180 days: 5.5%, 181-365 days: 6.5%, 1-2 years: 7.0%, 2-5 years: 7.25%, above 5 years: 7.0%. Senior citizens get an additional 0.5% on all tenures. TDS at 10% applies on interest above INR 40,000 (INR 50,000 for senior citizens) per financial year."
+  },
+  {
+    "id": "transfer-001",
+    "category": "transfers",
+    "title": "NEFT, RTGS, and IMPS Limits",
+    "content": "NEFT: No minimum, no upper limit, available 24x7, settlement in half-hourly batches. RTGS: Minimum INR 2 lakh, no upper limit, real-time settlement, available 24x7. IMPS: Up to INR 5 lakh per transaction, instant transfer, available 24x7. Charges: NEFT and RTGS via online channels are free; IMPS charges INR 5 to INR 15 based on amount."
+  },
+  {
+    "id": "compliance-001",
+    "category": "compliance",
+    "title": "Anti-Money Laundering Policy",
+    "content": "Per the Prevention of Money Laundering Act (PMLA), 2002, all cash transactions above INR 10 lakh are reported to FIU-IND. Suspicious Transaction Reports (STRs) are filed regardless of amount. Customer due diligence is mandatory at onboarding and periodically thereafter. Politically Exposed Persons (PEPs) require Enhanced Due Diligence and senior management approval."
+  },
+  {
+    "id": "digital-001",
+    "category": "digital",
+    "title": "Mobile Banking Security",
+    "content": "Mobile banking is secured with multi-factor authentication: device binding, biometric/PIN, and OTP. Sessions auto-timeout after 5 minutes of inactivity. Maximum 3 incorrect PIN attempts will lock the app for 24 hours. Customers should never share OTP, PIN, or CVV. The bank never asks for credentials via SMS, email, or call."
+  }
+]
