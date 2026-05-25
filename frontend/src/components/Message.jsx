@@ -5,20 +5,26 @@ function Meta({ msg }) {
   if (msg.role !== "assistant" || !msg.meta) return null;
   const { route, grounded, grounding_score, overlap, latency_ms, confidence } = msg.meta;
   return (
-    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+    <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-300">
       <RouteBadge route={route} />
       <span
         className={
-          grounded
-            ? "inline-block rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-700"
-            : "inline-block rounded-full bg-rose-50 px-2 py-0.5 text-rose-700"
+          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
+          (grounded
+            ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+            : "border-rose-400/30 bg-rose-400/10 text-rose-300")
         }
       >
-        {grounded ? "Grounded" : "Fallback used"} · g={grounding_score?.toFixed(2)} ·
-        o={overlap?.toFixed(2)}
+        <span
+          className={`h-1.5 w-1.5 rounded-full ${
+            grounded ? "bg-emerald-400" : "bg-rose-400"
+          }`}
+        />
+        {grounded ? "Grounded" : "Fallback"} · g={Number(grounding_score ?? 0).toFixed(2)} ·
+        o={Number(overlap ?? 0).toFixed(2)}
       </span>
-      <span>conf {Number(confidence ?? 0).toFixed(2)}</span>
-      <span>{latency_ms} ms</span>
+      <span className="chip">conf {Number(confidence ?? 0).toFixed(2)}</span>
+      <span className="chip">{latency_ms} ms</span>
     </div>
   );
 }
@@ -28,14 +34,18 @@ export default function Message({ msg }) {
   return (
     <div className={`flex ${isUser ? "justify-end" : "justify-start"}`}>
       <div
-        className={`max-w-[80%] rounded-2xl px-4 py-3 shadow-sm whitespace-pre-wrap leading-relaxed
-          ${isUser ? "bg-brand-600 text-white" : "bg-white border border-slate-200 text-slate-800"}`}
+        className={
+          "max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-wrap shadow-card " +
+          (isUser
+            ? "bg-gradient-to-br from-brand-400 to-brand-500 text-ink-950 shadow-glow"
+            : "border border-white/10 bg-white/[0.04] text-ink-100 backdrop-blur-xl")
+        }
       >
         <div>{msg.content}</div>
         <Meta msg={msg} />
         {msg.role === "assistant" && msg.sources?.length > 0 && (
           <div className="mt-3 grid gap-2">
-            <div className="text-xs font-semibold text-slate-500 uppercase tracking-wide">
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-400">
               Sources
             </div>
             {msg.sources.map((s) => (

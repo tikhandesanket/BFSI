@@ -1,123 +1,113 @@
-import { useEffect, useRef, useState } from "react";
-import Message from "./components/Message.jsx";
+import { useCallback, useEffect, useState } from "react";
+import ChatPanel from "./components/ChatPanel.jsx";
+import Dashboard from "./components/Dashboard.jsx";
+import Icon from "./components/Icon.jsx";
 import Sidebar from "./components/Sidebar.jsx";
-import { fetchHealth, sendChat } from "./api.js";
+import { fetchHealth } from "./api.js";
 
-const INITIAL_MSG = {
-  role: "assistant",
-  content:
-    "Hi! I'm your banking knowledge assistant. Ask about accounts, loans, cards, deposits, KYC, transfers, or fraud reporting.",
-  meta: null,
-  sources: [],
-};
+const NAV_IDS = ["overview", "topics", "upload", "gallery", "sources"];
 
 export default function App() {
-  const [messages, setMessages] = useState([INITIAL_MSG]);
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
   const [health, setHealth] = useState(null);
-  const [error, setError] = useState(null);
-  const scrollRef = useRef(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [topic, setTopic] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [active, setActive] = useState("overview");
 
-  useEffect(() => {
+  const refreshHealth = useCallback(() => {
     fetchHealth().then(setHealth).catch(() => setHealth(null));
   }, []);
 
   useEffect(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
-  }, [messages, loading]);
+    refreshHealth();
+  }, [refreshHealth]);
 
-  async function submit(text) {
-    const q = (text ?? input).trim();
-    if (!q || loading) return;
-    setError(null);
-    setMessages((m) => [...m, { role: "user", content: q }]);
-    setInput("");
-    setLoading(true);
-    try {
-      const data = await sendChat(q);
-      setMessages((m) => [
-        ...m,
-        {
-          role: "assistant",
-          content: data.answer,
-          sources: data.sources,
-          meta: {
-            route: data.route,
-            confidence: data.confidence,
-            grounded: data.grounded,
-            grounding_score: data.grounding_score,
-            overlap: data.overlap,
-            latency_ms: data.latency_ms,
-          },
-        },
-      ]);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    function onKey(e) {
+      if (e.key === "Escape") {
+        setChatOpen(false);
+        setMobileOpen(false);
+      }
+      if (
+        e.key === "/" &&
+        document.activeElement?.tagName !== "INPUT" &&
+        document.activeElement?.tagName !== "TEXTAREA"
+      ) {
+        e.preventDefault();
+        setChatOpen(true);
+      }
     }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((e) => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+        if (visible) setActive(visible.target.id);
+      },
+      { rootMargin: "-30% 0px -55% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    NAV_IDS.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  function openTopic(t) {
+    setTopic(t);
+    setChatOpen(true);
   }
 
-  function onKey(e) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      submit();
-    }
+  function openFree() {
+    setTopic(null);
+    setChatOpen(true);
   }
 
   return (
-    <div className="flex h-full">
-      <Sidebar health={health} onPick={(q) => submit(q)} />
+    <div className="min-h-full p-4 md:p-6 lg:p-8">
+      <div className="app-card relative mx-auto flex min-h-[calc(100vh-2rem)] max-w-[1500px] overflow-hidden md:min-h-[calc(100vh-3rem)] lg:min-h-[calc(100vh-4rem)]">
+        <Sidebar
+          collapsed={collapsed}
+          onToggle={() => setCollapsed((v) => !v)}
+          mobileOpen={mobileOpen}
+          onCloseMobile={() => setMobileOpen(false)}
+          onOpenChat={openFree}
+          active={active}
+          onSelect={setActive}
+          health={health}
+        />
 
-      <main className="flex-1 flex flex-col">
-        <header className="border-b border-slate-200 bg-white px-6 py-4">
-          <h1 className="text-lg font-semibold text-slate-900">Banking Knowledge Assistant</h1>
-          <p className="text-xs text-slate-500">
-            Retrieval-Augmented Generation with hallucination guardrails
-          </p>
-        </header>
+        <main className="relative flex-1 min-w-0 overflow-x-hidden">
+          <Dashboard
+            health={health}
+            onOpenTopic={openTopic}
+            onAskFree={openFree}
+            onRefreshHealth={refreshHealth}
+            onToggleMobileNav={() => setMobileOpen(true)}
+          />
+        </main>
+      </div>
 
-        <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 md:px-8 py-6 space-y-4">
-          {messages.map((m, i) => (
-            <Message key={i} msg={m} />
-          ))}
-          {loading && (
-            <div className="flex justify-start">
-              <div className="rounded-2xl bg-white border border-slate-200 px-4 py-3 shadow-sm text-sm text-slate-500">
-                Searching the knowledge base
-                <span className="inline-block animate-pulse">…</span>
-              </div>
-            </div>
-          )}
-          {error && (
-            <div className="text-sm text-rose-600 text-center">Error: {error}</div>
-          )}
-        </div>
+      <ChatPanel open={chatOpen} topic={topic} onClose={() => setChatOpen(false)} />
 
-        <footer className="border-t border-slate-200 bg-white p-4">
-          <div className="max-w-3xl mx-auto flex gap-2">
-            <textarea
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKey}
-              rows={1}
-              placeholder="Ask a banking question…"
-              className="flex-1 resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 focus:outline-none focus:ring-2 focus:ring-brand-500"
-            />
-            <button
-              onClick={() => submit()}
-              disabled={loading || !input.trim()}
-              className="rounded-xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:bg-slate-300 disabled:cursor-not-allowed"
-            >
-              Send
-            </button>
-          </div>
-          <div className="mt-2 text-center text-[11px] text-slate-400">
-            This assistant only answers from the bank's internal knowledge base.
-          </div>
-        </footer>
-      </main>
+      {!chatOpen && (
+        <button
+          onClick={openFree}
+          className="group fixed bottom-6 right-6 z-30 inline-flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-brand-400 to-brand-500 text-ink-950 shadow-glow-lg ring-1 ring-black/20 transition hover:scale-105 animate-pulseGlow"
+          aria-label="Open banking assistant"
+        >
+          <Icon name="bot" className="h-6 w-6" />
+          <span className="pointer-events-none absolute right-full mr-3 hidden whitespace-nowrap rounded-lg border border-white/10 bg-ink-900/90 px-3 py-1.5 text-xs font-medium text-white shadow-glow group-hover:block">
+            Ask the assistant
+          </span>
+        </button>
+      )}
     </div>
   );
 }
