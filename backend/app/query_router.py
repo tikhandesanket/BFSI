@@ -8,32 +8,34 @@ Classifies an incoming user query into one of:
 
 The router uses lightweight keyword + semantic-similarity rules so the system
 remains deterministic and audit-friendly — important for banking compliance.
+
+The rule data itself lives in `policy.py` so that every routing decision can be
+stamped with the version of the rules that produced it. Editing the keyword lists
+below would not change the recorded policy fingerprint; edit them in `policy.py`.
 """
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import List
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-SMALLTALK_PATTERNS = [
-    "hi", "hello", "hey", "good morning", "good afternoon", "good evening",
-    "how are you", "thanks", "thank you", "bye", "goodbye",
-]
+from .policy import (
+    BANKING_ANCHORS,
+    BANKING_KEYWORDS,
+    ESCALATION_KEYWORDS,
+    OOS_SIMILARITY_THRESHOLD,
+    SMALLTALK_PATTERNS,
+    escalation_policy_id,
+)
 
-ESCALATION_KEYWORDS = [
-    "fraud", "stolen", "unauthorized", "scam", "phishing", "dispute",
-    "complaint", "chargeback", "hack", "compromised",
-]
-
-BANKING_ANCHORS = [
-    "account", "loan", "credit card", "debit card", "savings", "deposit",
-    "interest rate", "KYC", "NEFT", "RTGS", "IMPS", "EMI", "branch",
-    "ATM", "cheque", "mobile banking", "net banking", "fixed deposit",
-    "mortgage", "balance", "transfer", "transaction", "PAN", "Aadhaar",
-]
+_KEYWORD_RE = re.compile(
+    r"\b(" + "|".join(re.escape(k) for k in sorted(BANKING_KEYWORDS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass
@@ -41,6 +43,9 @@ class RoutingDecision:
     route: str            # "smalltalk" | "out_of_scope" | "kb" | "escalate"
     confidence: float
     reason: str
+    # Version of the escalation rules that produced this decision, captured at
+    # decision time so a later threshold change cannot re-attribute it.
+    escalation_policy: str = ""
 
 
 class QueryRouter:
@@ -57,21 +62,30 @@ class QueryRouter:
 
     def route(self, query: str) -> RoutingDecision:
         q = query.strip().lower()
+        # Resolved once per decision: every branch below is stamped with the same
+        # rule version, even if the policy is reloaded mid-flight.
+        pol = escalation_policy_id()
 
         if not q:
-            return RoutingDecision("out_of_scope", 1.0, "empty query")
+            return RoutingDecision("out_of_scope", 1.0, "empty query", pol)
 
         # 1. Small-talk: short greetings / pleasantries.
         if any(q == p or q.startswith(p + " ") or q.startswith(p + "!") for p in SMALLTALK_PATTERNS):
-            return RoutingDecision("smalltalk", 0.95, "matched smalltalk pattern")
+            return RoutingDecision("smalltalk", 0.95, "matched smalltalk pattern", pol)
 
         # 2. Escalation: fraud / dispute terms → human agent.
         if any(kw in q for kw in ESCALATION_KEYWORDS):
-            return RoutingDecision("escalate", 0.9, "sensitive keyword detected")
+            return RoutingDecision("escalate", 0.9, "sensitive keyword detected", pol)
 
-        # 3. Banking-domain check via semantic similarity to anchors.
+        # 3. Deterministic banking keyword → straight to KB (whole-word match).
+        if _KEYWORD_RE.search(q):
+            return RoutingDecision("kb", 0.9, "banking keyword matched", pol)
+
+        # 4. Fallback for keyword-less queries: semantic similarity to anchors.
         sim = self._max_anchor_similarity(q)
-        if sim < 0.35:
-            return RoutingDecision("out_of_scope", 1.0 - sim, f"low banking similarity ({sim:.2f})")
+        if sim < OOS_SIMILARITY_THRESHOLD:
+            return RoutingDecision(
+                "out_of_scope", 1.0 - sim, f"low banking similarity ({sim:.2f})", pol
+            )
 
-        return RoutingDecision("kb", sim, f"banking similarity {sim:.2f}")
+        return RoutingDecision("kb", sim, f"banking similarity {sim:.2f}", pol)

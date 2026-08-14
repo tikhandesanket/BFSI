@@ -151,6 +151,54 @@ const PATHS = {
       <path d="M8 11h.01M12 11h.01M16 11h.01" />
     </>
   ),
+  mic: (
+    <>
+      <rect x="9" y="3" width="6" height="11" rx="3" />
+      <path d="M5 11a7 7 0 0 0 14 0" />
+      <path d="M12 18v3M8 21h8" />
+    </>
+  ),
+  micOff: (
+    <>
+      <path d="M15 9.34V5a3 3 0 0 0-5.94-.6" />
+      <path d="M9 9v2a3 3 0 0 0 5.12 2.12" />
+      <path d="M5 11a7 7 0 0 0 10.7 5.98M19 11a6.97 6.97 0 0 1-.34 2.16" />
+      <path d="M12 18v3M8 21h8M3 3l18 18" />
+    </>
+  ),
+  volume: (
+    <>
+      <path d="M4 9v6h4l5 4V5L8 9H4Z" />
+      <path d="M16 9a3 3 0 0 1 0 6M18.5 7a6 6 0 0 1 0 10" />
+    </>
+  ),
+  chart: (
+    <>
+      <path d="M4 4v16h16" />
+      <rect x="7" y="11" width="3" height="6" rx="0.5" />
+      <rect x="12" y="7" width="3" height="10" rx="0.5" />
+      <rect x="17" y="13" width="3" height="4" rx="0.5" />
+    </>
+  ),
+  pie: (
+    <>
+      <path d="M12 3a9 9 0 1 0 9 9h-9V3Z" />
+      <path d="M14 3.5A9 9 0 0 1 20.5 10H14V3.5Z" />
+    </>
+  ),
+  coins: (
+    <>
+      <ellipse cx="9" cy="7" rx="6" ry="3" />
+      <path d="M3 7v5c0 1.66 2.69 3 6 3s6-1.34 6-3V7" />
+      <path d="M15 12.5c2.5-.2 6-1.2 6-3.5 0-1.66-2.69-3-6-3" />
+      <path d="M3 12v5c0 1.66 2.69 3 6 3 1.5 0 2.9-.28 4-.75" />
+    </>
+  ),
+  bolt: (
+    <>
+      <path d="M13 2 4 14h6l-1 8 9-12h-6l1-8Z" />
+    </>
+  ),
 };
 
 export default function Icon({ name, className = "h-5 w-5", strokeWidth = 1.7 }) {

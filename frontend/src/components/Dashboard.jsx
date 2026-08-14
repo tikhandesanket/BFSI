@@ -1,8 +1,6 @@
 import ActivityColumn from "./ActivityColumn.jsx";
-import BankGallery from "./BankGallery.jsx";
 import Icon from "./Icon.jsx";
 import KnowledgePie from "./KnowledgePie.jsx";
-import UploadPanel from "./UploadPanel.jsx";
 import WelcomeBanner from "./WelcomeBanner.jsx";
 import { TOPICS, findTopic } from "../topics.js";
 
@@ -22,39 +20,11 @@ function MiniStat({ label, value, icon, tint = "bg-brand-400/15 text-brand-300" 
   );
 }
 
-function TopicCard({ topic, onOpen }) {
-  return (
-    <button
-      onClick={() => onOpen(topic)}
-      className="topic-card group text-left"
-    >
-      <div className="relative z-10 flex items-start justify-between">
-        <div className="rounded-xl border border-brand-400/30 bg-brand-400/10 p-2.5 text-brand-300 transition group-hover:bg-brand-400/20">
-          <Icon name={topic.icon} className="h-5 w-5" />
-        </div>
-        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-300">
-          Topic
-        </span>
-      </div>
-      <div className="relative z-10 mt-4">
-        <div className="font-display text-lg font-semibold text-white">
-          {topic.label}
-        </div>
-        <div className="mt-1 text-xs text-ink-300">{topic.tagline}</div>
-      </div>
-      <div className="relative z-10 mt-5 flex items-center gap-1.5 text-xs font-medium text-brand-300 opacity-80 transition group-hover:opacity-100">
-        Ask the assistant
-        <Icon name="arrow" className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" />
-      </div>
-    </button>
-  );
-}
-
 export default function Dashboard({
   health,
   onOpenTopic,
   onAskFree,
-  onRefreshHealth,
+  onGoToExplore,
   onToggleMobileNav,
 }) {
   const docs = health?.documents ?? 0;
@@ -81,7 +51,7 @@ export default function Dashboard({
               <Icon name="menu" className="h-5 w-5" />
             </button>
             <h1 className="font-display text-2xl font-bold text-white md:text-3xl">
-              Dashboard
+              Secure Banking for a Smarter Future
             </h1>
           </div>
 
@@ -100,6 +70,13 @@ export default function Dashboard({
               <Icon name="sparkle" className="h-3 w-3 text-brand-300" />
               RAG · Guardrails
             </span>
+            <button
+              onClick={onGoToExplore}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand-400/40 bg-brand-400/10 px-3 py-1.5 text-xs font-medium text-brand-300 transition hover:bg-brand-400/20 hover:text-white"
+            >
+              Explore
+              <Icon name="arrow" className="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
 
@@ -154,72 +131,6 @@ export default function Dashboard({
             <ActivityColumn onOpenTopic={onOpenTopic} />
           </div>
         </div>
-
-        {/* Topics */}
-        <section id="topics" className="mt-10 scroll-mt-24">
-          <div className="flex items-end justify-between">
-            <div>
-              <h2 className="font-display text-xl font-semibold text-white md:text-2xl">
-                Explore by topic
-              </h2>
-              <p className="mt-1 text-sm text-ink-300">
-                Pick a topic — the assistant will open scoped to that domain.
-              </p>
-            </div>
-            <span className="hidden text-xs text-ink-300 md:block">
-              {TOPICS.length} topics
-            </span>
-          </div>
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {TOPICS.map((t) => (
-              <TopicCard key={t.id} topic={t} onOpen={onOpenTopic} />
-            ))}
-          </div>
-        </section>
-
-        {/* Banking imagery gallery */}
-        <BankGallery onOpenTopic={openTopicId} />
-
-        {/* Upload documents */}
-        <div id="upload" className="scroll-mt-24">
-          <UploadPanel onIngested={onRefreshHealth} />
-        </div>
-
-        {/* Feature strip */}
-        <section
-          id="sources"
-          className="mt-12 scroll-mt-24 grid grid-cols-1 gap-4 md:grid-cols-3"
-        >
-          {[
-            {
-              icon: "shield",
-              title: "Grounded answers",
-              body: "Every response is checked against the source corpus before it reaches you.",
-            },
-            {
-              icon: "sparkle",
-              title: "Smart routing",
-              body: "Queries are routed to the knowledge base, small-talk, or escalation.",
-            },
-            {
-              icon: "lock",
-              title: "Secure by design",
-              body: "No PII leaves the bank's perimeter. Sources are always cited.",
-            },
-          ].map((f) => (
-            <div key={f.title} className="surface p-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-lg bg-brand-400/15 p-2 text-brand-300">
-                  <Icon name={f.icon} className="h-5 w-5" />
-                </div>
-                <div className="font-display text-base font-semibold text-white">
-                  {f.title}
-                </div>
-              </div>
-              <p className="mt-3 text-sm leading-relaxed text-ink-200">{f.body}</p>
-            </div>
-          ))}
-        </section>
 
         <footer className="mt-12 flex flex-wrap items-center justify-between gap-2 border-t border-white/5 pt-6 text-[11px] text-ink-300">
           <span>Demo — for informational purposes only.</span>

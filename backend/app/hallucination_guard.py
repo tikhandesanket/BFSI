@@ -23,6 +23,7 @@ from typing import List
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
+from .policy import GUARD_GROUNDING_THRESHOLD, GUARD_OVERLAP_THRESHOLD
 from .rag_engine import RetrievalResult
 
 STOPWORDS = {
@@ -50,8 +51,8 @@ class HallucinationGuard:
     def __init__(
         self,
         model: SentenceTransformer,
-        grounding_threshold: float = 0.45,
-        overlap_threshold: float = 0.15,
+        grounding_threshold: float = GUARD_GROUNDING_THRESHOLD,
+        overlap_threshold: float = GUARD_OVERLAP_THRESHOLD,
     ):
         self.model = model
         self.grounding_threshold = grounding_threshold
@@ -79,15 +80,18 @@ class HallucinationGuard:
 
 
 def build_extractive_fallback(query: str, sources: List[RetrievalResult]) -> str:
-    """If the LLM answer fails guarding, return a safe quote of the top source."""
+    """Safe message when the LLM answer fails grounding. Deliberately does NOT
+    paste raw source text back — those chunks are often noisy PDF extracts, and
+    dumping them looks like a confident answer when it isn't."""
     if not sources:
         return (
             "I could not find a confident answer in our banking knowledge base. "
             "Please rephrase your question or contact a human agent."
         )
-    top = sources[0].document
+    # Reference the closest documents by name, without quoting their raw content.
+    names = list(dict.fromkeys(s.document.title.split(" · ")[0] for s in sources[:3]))
     return (
-        f"Based on our knowledge base — *{top.title}* — here is the relevant policy:\n\n"
-        f"“{top.content}”\n\n"
-        "If you need clarification, please contact a human agent."
+        "I couldn't find a confident, grounded answer to that in our knowledge "
+        f"base. The most relevant material is in: {', '.join(names)}. "
+        "Please rephrase your question or contact a human agent for the specifics."
     )

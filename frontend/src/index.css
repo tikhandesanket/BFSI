@@ -98,6 +98,20 @@ body {
   }
 }
 
+/* Auto-rolling ticker for the fallback questions list. Content is duplicated
+   in the markup, so translating the track up by exactly one copy (-50%) loops
+   seamlessly. Pauses while the user hovers so they can read an entry. */
+@keyframes fbRoll {
+  from { transform: translateY(0); }
+  to { transform: translateY(-50%); }
+}
+.fb-roll-track {
+  animation: fbRoll var(--fb-roll-duration, 24s) linear infinite;
+}
+.fb-roll:hover .fb-roll-track {
+  animation-play-state: paused;
+}
+
 @layer utilities {
   .scrollbar-thin::-webkit-scrollbar {
     width: 6px;

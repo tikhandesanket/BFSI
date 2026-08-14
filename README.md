@@ -85,7 +85,7 @@ banking-rag-assistant/
 cd backend
 python -m venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+#pip install -r requirements.txt
 
 # optional — enables LLM synthesis; otherwise uses extractive fallback
 cp .env.example .env
@@ -114,19 +114,24 @@ Open <http://localhost:5173>. The Vite dev server proxies `/api/*` → `http://l
 ## How the three core features work
 
 ### Retrieval-Augmented Generation
+
 `RAGEngine` (`backend/app/rag_engine.py`) encodes each KB document with `all-MiniLM-L6-v2`, L2-normalizes the embeddings, and indexes them with `faiss.IndexFlatIP` (cosine similarity). At query time it returns the top-k passages with similarity scores.
 
 ### Intelligent Query Routing
+
 `QueryRouter` (`backend/app/query_router.py`) classifies queries into four routes before any LLM call:
+
 - `smalltalk` — greetings → canned response, no retrieval.
-- `escalate`  — fraud / dispute keywords → human-handoff message.
+- `escalate` — fraud / dispute keywords → human-handoff message.
 - `out_of_scope` — low semantic similarity to banking anchors → polite refusal.
 - `kb` — routes to RAG pipeline.
 
 This keeps the LLM out of the loop for things it shouldn't answer (cost + safety).
 
 ### Hallucination Reduction
+
 `HallucinationGuard` (`backend/app/hallucination_guard.py`) checks every generated answer with two cheap, deterministic gates:
+
 1. **Semantic grounding** — cosine similarity between answer and concatenated source passages must exceed `0.45`.
 2. **Token overlap** — content-word overlap between answer and sources must exceed `0.15`.
 
@@ -163,10 +168,16 @@ Response:
   "grounding_score": 0.83,
   "overlap": 0.42,
   "sources": [
-    { "id": "loan-001", "title": "Home Loan Eligibility", "category": "loans",
-      "snippet": "Home loan eligibility requires...", "score": 0.71 }
+    {
+      "id": "loan-001",
+      "title": "Home Loan Eligibility",
+      "category": "loans",
+      "snippet": "Home loan eligibility requires...",
+      "score": 0.71
+    }
   ],
   "latency_ms": 184
 }
 ```
+
 # BFSI

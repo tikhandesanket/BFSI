@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import Icon from "./Icon.jsx";
 import Message from "./Message.jsx";
 import { sendChat } from "../api.js";
+import { logQuery } from "../queryLog.js";
 
 function greetingFor(topic) {
   if (!topic) {
@@ -60,6 +61,14 @@ export default function ChatPanel({ open, topic, onClose }) {
     setLoading(true);
     try {
       const data = await sendChat(q);
+      logQuery({
+        query: q,
+        source: "chat",
+        route: data.route,
+        confidence: data.confidence,
+        grounded: data.grounded,
+        latency_ms: data.latency_ms,
+      });
       setMessages((m) => [
         ...m,
         {
@@ -73,6 +82,8 @@ export default function ChatPanel({ open, topic, onClose }) {
             grounding_score: data.grounding_score,
             overlap: data.overlap,
             latency_ms: data.latency_ms,
+            cached: data.cached,
+            cache_similarity: data.cache_similarity,
           },
         },
       ]);

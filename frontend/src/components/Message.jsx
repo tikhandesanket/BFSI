@@ -3,10 +3,19 @@ import SourceCard from "./SourceCard.jsx";
 
 function Meta({ msg }) {
   if (msg.role !== "assistant" || !msg.meta) return null;
-  const { route, grounded, grounding_score, overlap, latency_ms, confidence } = msg.meta;
+  const { route, grounded, grounding_score, overlap, latency_ms, confidence, cached, cache_similarity } = msg.meta;
   return (
     <div className="mt-2.5 flex flex-wrap items-center gap-1.5 text-[11px] text-ink-300">
       <RouteBadge route={route} />
+      {cached && (
+        <span
+          className="inline-flex items-center gap-1 rounded-full border border-brand-400/40 bg-brand-400/15 px-2 py-0.5 text-brand-300"
+          title={cache_similarity ? `Similarity ${Number(cache_similarity).toFixed(2)}` : undefined}
+        >
+          <span className="h-1.5 w-1.5 rounded-full bg-brand-400" />
+          Cached{cache_similarity ? ` · ${Number(cache_similarity).toFixed(2)}` : ""}
+        </span>
+      )}
       <span
         className={
           "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +

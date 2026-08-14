@@ -1,10 +1,11 @@
 const BASE = "/api";
 
-export async function sendChat(query, topK = 4) {
+export async function sendChat(query, topK = 8, { signal } = {}) {
   const res = await fetch(`${BASE}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, top_k: topK }),
+    signal,
   });
   if (!res.ok) {
     const text = await res.text();
@@ -16,6 +17,24 @@ export async function sendChat(query, topK = 4) {
 export async function fetchHealth() {
   const res = await fetch(`${BASE}/health`);
   if (!res.ok) throw new Error("Health check failed");
+  return res.json();
+}
+
+export async function fetchMetrics(days = 30) {
+  const res = await fetch(`${BASE}/metrics?days=${days}`);
+  if (!res.ok) throw new Error("Failed to load metrics");
+  return res.json();
+}
+
+export async function resetMetrics() {
+  const res = await fetch(`${BASE}/metrics/reset`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to reset metrics");
+  return res.json();
+}
+
+export async function clearCache() {
+  const res = await fetch(`${BASE}/cache/clear`, { method: "POST" });
+  if (!res.ok) throw new Error("Failed to clear cache");
   return res.json();
 }
 

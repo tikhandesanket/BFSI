@@ -3,6 +3,7 @@ import Icon from "./Icon.jsx";
 
 const NAV = [
   { id: "overview", label: "Dashboard", icon: "dashboard", href: "#overview" },
+  { id: "metrics", label: "Analytics", icon: "chart", href: "#metrics" },
   { id: "topics", label: "Manage topics", icon: "grid", href: "#topics" },
   { id: "upload", label: "Upload docs", icon: "upload", href: "#upload" },
   { id: "gallery", label: "Knowledge feed", icon: "book", href: "#gallery" },
@@ -15,14 +16,25 @@ function scrollToHash(hash) {
   if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+const PAGE_BY_ID = {
+  overview: "dashboard",
+  metrics: "metrics",
+  topics: "topics",
+  upload: "upload",
+  gallery: "explore",
+  sources: "explore",
+};
+
 export default function Sidebar({
   collapsed,
   onToggle,
   mobileOpen,
   onCloseMobile,
   onOpenChat,
+  onOpenVoice,
   active = "overview",
   onSelect,
+  onNavigatePage,
   health,
 }) {
   const [theme, setTheme] = useState("dark");
@@ -38,12 +50,20 @@ export default function Sidebar({
   function handleNav(item, e) {
     e?.preventDefault();
     onSelect?.(item.id);
-    scrollToHash(item.href);
+    const targetPage = PAGE_BY_ID[item.id] ?? "dashboard";
+    onNavigatePage?.(targetPage);
+    // Defer scroll so the target page mounts first
+    setTimeout(() => scrollToHash(item.href), 50);
     onCloseMobile?.();
   }
 
   function handleChat() {
     onOpenChat?.();
+    onCloseMobile?.();
+  }
+
+  function handleVoice() {
+    onOpenVoice?.();
     onCloseMobile?.();
   }
 
@@ -139,17 +159,34 @@ export default function Sidebar({
                 <span className="flex-1 text-left font-medium">Ask the Assistant</span>
                 <Icon name="arrow" className="h-3.5 w-3.5 text-brand-400 transition group-hover:translate-x-0.5" />
               </button>
+              <button
+                onClick={handleVoice}
+                className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink-200 transition hover:bg-white/5 hover:text-white"
+              >
+                <Icon name="mic" className="h-[18px] w-[18px] shrink-0 text-ink-300 group-hover:text-brand-300" />
+                <span className="flex-1 text-left font-medium">Voice Assistant</span>
+                <Icon name="arrow" className="h-3.5 w-3.5 text-brand-400 transition group-hover:translate-x-0.5" />
+              </button>
             </>
           )}
 
           {collapsed && (
-            <button
-              onClick={handleChat}
-              title="Ask the Assistant"
-              className="mt-3 flex w-full items-center justify-center rounded-xl py-2 text-ink-300 transition hover:bg-white/5 hover:text-brand-300"
-            >
-              <Icon name="bot" className="h-[18px] w-[18px]" />
-            </button>
+            <>
+              <button
+                onClick={handleChat}
+                title="Ask the Assistant"
+                className="mt-3 flex w-full items-center justify-center rounded-xl py-2 text-ink-300 transition hover:bg-white/5 hover:text-brand-300"
+              >
+                <Icon name="bot" className="h-[18px] w-[18px]" />
+              </button>
+              <button
+                onClick={handleVoice}
+                title="Voice Assistant"
+                className="mt-1 flex w-full items-center justify-center rounded-xl py-2 text-ink-300 transition hover:bg-white/5 hover:text-brand-300"
+              >
+                <Icon name="mic" className="h-[18px] w-[18px]" />
+              </button>
+            </>
           )}
         </nav>
 
