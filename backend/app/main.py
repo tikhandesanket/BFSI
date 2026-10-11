@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import time
+import uuid
 from typing import List, Optional
 
 from dotenv import load_dotenv
+from .interrupt_store import InterruptStore
 
 # Load .env (Azure/OpenAI keys, model config) before anything reads os.environ.
 load_dotenv()
@@ -44,12 +46,21 @@ metrics = MetricsStore(path=DATA_DIR / "metrics.json")
 # Record the rules in force at boot, so every policy id stamped on an event this
 # run can be resolved back to its full rule set later.
 policy_registry = PolicyRegistry(path=DATA_DIR / "policy_versions.json")
+hitl_store = InterruptStore(
+    db_path=DATA_DIR / "human_reviews.db"
+)
 POLICY_ID = policy_registry.register_current()
 
 MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 # --- schemas ------------------------------------------------------------------
+
+class HumanDecisionRequest(BaseModel):
+    decision: str = Field(..., pattern="^(approved|rejected)$")
+    reviewer_id: str = Field(..., min_length=1, max_length=100)
+    reason: str = Field(..., min_length=1, max_length=1000)
+
 class ChatRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=1000)
     top_k: int = Field(default=8, ge=1, le=12)
@@ -111,7 +122,9 @@ class DocumentsListResponse(BaseModel):
     uploads: List[UploadResponse]
     stats: dict
 
-
+class HumanReviewCreateRequest(BaseModel):
+    case_type: str = Field(..., pattern="^pep_onboarding$")
+    case_reference: str = Field(..., min_length=1, max_length=100)
 # --- endpoints ----------------------------------------------------------------
 @app.get("/health")
 def health() -> dict:
@@ -155,6 +168,76 @@ def clear_cache() -> dict:
 def chat(req: ChatRequest) -> ChatResponse:
     t0 = time.perf_counter()
     decision = router.route(req.query)
+    
+    # HITL: route PEP onboarding requests for human review.
+    normalized_query = req.query.lower()
+    padded_query = f" {normalized_query} "
+
+    mentions_pep = (
+        " pep " in padded_query
+        or "politically exposed person" in normalized_query
+        or "politically exposed persons" in normalized_query
+    )
+
+    onboarding_terms = (
+        "onboard",
+        "onboarding",
+        "open an account",
+        "account opening",
+        "customer application",
+    )
+
+    is_onboarding_request = any(
+        term in normalized_query for term in onboarding_terms
+    )
+
+    if mentions_pep and is_onboarding_request:
+        case_reference = f"CHAT-{uuid.uuid4().hex[:12].upper()}"
+
+        review = hitl_store.create_review(
+            query=req.query,
+            context={
+                "case_type": "pep_onboarding",
+                "case_reference": case_reference,
+                "required_checks": [
+                    "Enhanced Due Diligence",
+                    "Senior management approval",
+                ],
+                "policy_basis": (
+                    "Banking knowledge base states that PEPs require "
+                    "Enhanced Due Diligence and senior management approval."
+                ),
+            },
+        )
+
+        latency = int((time.perf_counter() - t0) * 1000)
+
+        resp = ChatResponse(
+            answer=(
+                "This PEP onboarding request requires human review. "
+                "The case has been created and is awaiting a decision. "
+                f"Review ID: {review['id']}. "
+                "No onboarding approval has been granted."
+            ),
+            route="human_review",
+            confidence=1.0,
+            grounded=True,
+            grounding_score=1.0,
+            overlap=1.0,
+            sources=[],
+            latency_ms=latency,
+        )
+
+        metrics.record(
+            source="hitl",
+            route="human_review",
+            latency_ms=latency,
+            query=req.query,
+            needs_human=True,
+        )
+
+        return resp
+
 
     if decision.route == "smalltalk":
         resp = ChatResponse(
@@ -407,3 +490,164 @@ def delete_document(doc_id: str) -> dict:
     if record is None:
         raise HTTPException(status_code=404, detail="Document not found.")
     return {"status": "deleted", "id": record["id"], "kind": record["kind"]}
+# --- human-in-the-loop reviews -----------------------------------------------
+
+@app.get("/human-reviews")
+def list_human_reviews():
+    """List reviews waiting for human decisions."""
+    return {"reviews": hitl_store.list_pending()}
+
+
+@app.get("/human-reviews/{review_id}")
+def get_human_review(review_id: str):
+    """Retrieve one review by its ID."""
+    review = hitl_store.get_review(review_id)
+
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found.")
+
+    return review
+
+
+@app.post("/human-reviews/{review_id}/decision")
+def decide_human_review(
+    review_id: str,
+    req: HumanDecisionRequest,
+):
+    """Record an officer's decision for a pending review."""
+    review = hitl_store.decide(
+        review_id=review_id,
+        decision=req.decision,
+        reviewer_id=req.reviewer_id,
+        reason=req.reason,
+    )
+
+    if review is None:
+        existing = hitl_store.get_review(review_id)
+
+        if existing is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Review not found.",
+            )
+
+        raise HTTPException(
+            status_code=409,
+            detail="This review has already been decided.",
+        )
+
+    return review
+
+@app.post("/human-reviews", status_code=201)
+def create_human_review(req: HumanReviewCreateRequest):
+
+    """Create a review for a PEP onboarding case."""
+    review = hitl_store.create_review(
+        query=f"Review PEP onboarding case {req.case_reference}",
+        context={
+            "case_type": req.case_type,
+            "case_reference": req.case_reference,
+            "required_checks": [
+                "Enhanced Due Diligence",
+                "Senior management approval",
+            ],
+            "policy_basis": (
+                "Banking knowledge base states that PEPs require "
+                "Enhanced Due Diligence and senior management approval."
+            ),
+        },
+    )
+    return review
+
+
+@app.get("/human-reviews/{review_id}/workflow-status")
+def get_human_review_workflow_status(review_id: str):
+    review = hitl_store.get_review(review_id)
+
+    if review is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Review not found.",
+        )
+
+    if review["status"] == "pending":
+        return {
+            "review_id": review_id,
+            "workflow_status": "waiting_for_human",
+            "can_proceed": False,
+            "message": "Waiting for a human decision.",
+        }
+
+    if review["status"] == "rejected":
+        return {
+            "review_id": review_id,
+            "workflow_status": "stopped",
+            "can_proceed": False,
+            "message": "The human reviewer rejected this case.",
+        }
+
+    if review["edd_status"] != "completed":
+        return {
+            "review_id": review_id,
+            "workflow_status": "waiting_for_edd",
+            "can_proceed": False,
+            "message": "Enhanced Due Diligence is not yet completed.",
+        }
+
+    return {
+        "review_id": review_id,
+        "workflow_status": "ready_for_final_checks",
+        "can_proceed": False,
+        "message": (
+            "Human approval and EDD completion are recorded. "
+            "Remaining required checks must be verified."
+        ),
+    }
+
+
+
+
+@app.post("/human-reviews/{review_id}/edd-completion")
+def complete_edd(review_id: str):
+    review = hitl_store.get_review(review_id)
+
+    if review is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Review not found.",
+        )
+
+    if review["status"] == "pending":
+        raise HTTPException(
+            status_code=409,
+            detail="Human review is still pending.",
+        )
+
+    if review["status"] == "rejected":
+        raise HTTPException(
+            status_code=409,
+            detail="Cannot complete EDD for a rejected case.",
+        )
+
+    updated_review = hitl_store.update_edd_status(
+        review_id=review_id,
+        edd_status="completed",
+    )
+
+    if updated_review is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Could not update EDD status.",
+        )
+
+    return {
+        "review_id": review_id,
+        "edd_status": updated_review["edd_status"],
+        "workflow_status": "ready_for_final_checks",
+        "can_proceed": False,
+        "message": (
+            "EDD status recorded. Verify all required checks "
+            "before allowing onboarding to proceed."
+        ),
+    }
+
