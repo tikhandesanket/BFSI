@@ -75,6 +75,44 @@ class InterruptStore:
                 """)
 
 
+            # Refresh columns after the EDD migration.
+            columns = {
+                row["name"]
+                for row in conn.execute(
+                    "PRAGMA table_info(human_reviews)"
+                ).fetchall()
+            }
+
+            # Add senior management approval fields if missing.
+            senior_approval_columns = {
+                "senior_approval_status": """
+                    ALTER TABLE human_reviews
+                    ADD COLUMN senior_approval_status TEXT NOT NULL
+                    DEFAULT 'not_started'
+                    CHECK (
+                        senior_approval_status IN (
+                            'not_started', 'approved', 'rejected'
+                        )
+                    )
+                """,
+                "senior_reviewer_id": """
+                    ALTER TABLE human_reviews
+                    ADD COLUMN senior_reviewer_id TEXT
+                """,
+                "senior_approval_reason": """
+                    ALTER TABLE human_reviews
+                    ADD COLUMN senior_approval_reason TEXT
+                """,
+                "senior_decided_at": """
+                    ALTER TABLE human_reviews
+                    ADD COLUMN senior_decided_at TEXT
+                """,
+            }
+
+            for column_name, migration_sql in senior_approval_columns.items():
+                if column_name not in columns:
+                    conn.execute(migration_sql)
+
     def create_review(self, query: str, context: dict) -> dict:
         review_id = str(uuid.uuid4())
         created_at = utc_now()
@@ -108,6 +146,14 @@ class InterruptStore:
                 WHERE status = 'pending'
                 ORDER BY created_at ASC
                 """
+            ).fetchall()
+
+        return [self._serialize(row) for row in rows]
+
+    def list_all(self) -> list[dict]:
+        with self._connect() as conn:
+            rows = conn.execute(
+                "SELECT * FROM human_reviews ORDER BY created_at DESC"
             ).fetchall()
 
         return [self._serialize(row) for row in rows]
@@ -182,6 +228,49 @@ class InterruptStore:
 
         return self.get_review(review_id)
 
+
+    def record_senior_approval(
+        self,
+        review_id: str,
+        decision: str,
+        reviewer_id: str,
+        reason: str,
+    ) -> Optional[dict]:
+        if decision not in {"approved", "rejected"}:
+            raise ValueError("Invalid senior approval decision.")
+
+        if not reviewer_id.strip():
+            raise ValueError("Senior reviewer ID is required.")
+
+        if not reason.strip():
+            raise ValueError("A senior approval reason is required.")
+
+        with self._connect() as conn:
+            cursor = conn.execute(
+                """
+                UPDATE human_reviews
+                SET senior_approval_status = ?,
+                    senior_reviewer_id = ?,
+                    senior_approval_reason = ?,
+                    senior_decided_at = ?
+                WHERE id = ?
+                  AND status = 'approved'
+                  AND edd_status = 'completed'
+                  AND senior_approval_status = 'not_started'
+                """,
+                (
+                    decision,
+                    reviewer_id.strip(),
+                    reason.strip(),
+                    utc_now(),
+                    review_id,
+                ),
+            )
+
+            if cursor.rowcount != 1:
+                return None
+
+        return self.get_review(review_id)
 
     @staticmethod
     def _serialize(row: sqlite3.Row) -> dict:

@@ -69,3 +69,61 @@ def test_invalid_edd_status_is_rejected(tmp_path):
         assert False, "Expected ValueError for invalid EDD status"
     except ValueError:
         pass
+
+
+def test_senior_approval_blocked_until_edd_completed(tmp_path):
+    store, review_id = create_test_review(tmp_path)
+    store.decide(review_id, "approved", "officer", "Initial approval")
+
+    result = store.record_senior_approval(
+        review_id, "approved", "senior", "Senior approval"
+    )
+
+    assert result is None
+
+
+def test_senior_management_can_approve_after_edd(tmp_path):
+    store, review_id = create_test_review(tmp_path)
+    store.decide(review_id, "approved", "officer", "Initial approval")
+    store.update_edd_status(review_id, "completed")
+
+    result = store.record_senior_approval(
+        review_id, "approved", "senior", "Senior approval"
+    )
+
+    assert result is not None
+    assert result["senior_approval_status"] == "approved"
+    assert result["senior_reviewer_id"] == "senior"
+
+
+def test_senior_management_can_reject_after_edd(tmp_path):
+    store, review_id = create_test_review(tmp_path)
+    store.decide(review_id, "approved", "officer", "Initial approval")
+    store.update_edd_status(review_id, "completed")
+
+    result = store.record_senior_approval(
+        review_id, "rejected", "senior", "Senior rejection"
+    )
+
+    assert result is not None
+    assert result["senior_approval_status"] == "rejected"
+
+
+def test_senior_decision_cannot_be_overwritten(tmp_path):
+    store, review_id = create_test_review(tmp_path)
+    store.decide(review_id, "approved", "officer", "Initial approval")
+    store.update_edd_status(review_id, "completed")
+
+    first = store.record_senior_approval(
+        review_id, "approved", "senior", "First decision"
+    )
+    second = store.record_senior_approval(
+        review_id, "rejected", "another-senior", "Second decision"
+    )
+
+    assert first is not None
+    assert second is None
+
+    saved = store.get_review(review_id)
+    assert saved["senior_approval_status"] == "approved"
+    assert saved["senior_reviewer_id"] == "senior"
