@@ -1,6 +1,5 @@
 """FastAPI entrypoint for the Banking Knowledge Assistant."""
 
-from __future__ import annotations
 
 import time
 import uuid
@@ -12,7 +11,7 @@ from .interrupt_store import InterruptStore
 # Load .env (Azure/OpenAI keys, model config) before anything reads os.environ.
 load_dotenv()
 
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, Request, Body
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
@@ -57,6 +56,11 @@ MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
 # --- schemas ------------------------------------------------------------------
 
 class HumanDecisionRequest(BaseModel):
+    decision: str = Field(..., pattern="^(approved|rejected)$")
+    reviewer_id: str = Field(..., min_length=1, max_length=100)
+    reason: str = Field(..., min_length=1, max_length=1000)
+
+class SeniorApprovalRequest(BaseModel):
     decision: str = Field(..., pattern="^(approved|rejected)$")
     reviewer_id: str = Field(..., min_length=1, max_length=100)
     reason: str = Field(..., min_length=1, max_length=1000)
@@ -493,9 +497,10 @@ def delete_document(doc_id: str) -> dict:
 # --- human-in-the-loop reviews -----------------------------------------------
 
 @app.get("/human-reviews")
-def list_human_reviews():
-    """List reviews waiting for human decisions."""
-    return {"reviews": hitl_store.list_pending()}
+def list_human_reviews(include_all: bool = False):
+    """List reviews waiting for human decisions (or all reviews)."""
+    reviews = hitl_store.list_all() if include_all else hitl_store.list_pending()
+    return {"reviews": reviews}
 
 
 @app.get("/human-reviews/{review_id}")
@@ -651,3 +656,65 @@ def complete_edd(review_id: str):
         ),
     }
 
+
+
+@app.post("/human-reviews/{review_id}/senior-approval")
+def record_senior_approval(
+    review_id: str,
+    payload: dict = Body(...),
+):
+    try:
+        req = SeniorApprovalRequest.model_validate(payload)
+    except Exception:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid senior approval request. Provide decision, reviewer_id, and reason.",
+        )
+
+
+    review = hitl_store.get_review(review_id)
+
+    if review is None:
+        raise HTTPException(status_code=404, detail="Review not found.")
+
+    if review["status"] != "approved":
+        raise HTTPException(
+            status_code=409,
+            detail="Initial human review must be approved first.",
+        )
+
+    if review["edd_status"] != "completed":
+        raise HTTPException(
+            status_code=409,
+            detail="Enhanced Due Diligence must be completed first.",
+        )
+
+    updated_review = hitl_store.record_senior_approval(
+        review_id=review_id,
+        decision=req.decision,
+        reviewer_id=req.reviewer_id,
+        reason=req.reason,
+    )
+
+    if updated_review is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Senior decision already recorded or workflow changed.",
+        )
+
+    approved = req.decision == "approved"
+
+    return {
+        "review_id": review_id,
+        "senior_approval_status": updated_review["senior_approval_status"],
+        "workflow_status": (
+            "waiting_for_final_checks" if approved else "stopped"
+        ),
+        "can_proceed": False,
+        "message": (
+            "Senior management approval recorded. Verify all remaining "
+            "required checks before onboarding."
+            if approved
+            else "Senior management rejected the case."
+        ),
+    }
